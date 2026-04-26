@@ -141,3 +141,15 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Laravel
+backend/vendor/
+backend/.env
+backend/storage/logs/*.log
+backend/bootstrap/cache/*.php
+
+# Frontend build
+frontend/dist/
+
+# Local env
+.env.local

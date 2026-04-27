@@ -21,8 +21,8 @@ php artisan db:seed --force --no-interaction
 
 echo "Caching configuration..."
 php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+php artisan route:cache || echo "  [warn] route:cache failed, running without route cache"
+php artisan view:cache || true
 php artisan storage:link || true
 
 echo "=== Starting services ==="

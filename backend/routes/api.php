@@ -14,7 +14,7 @@ use App\Http\Controllers\Api\V1\ChatController;
 
 Route::prefix('v1')->name('v1.')->group(function () {
 
-    Route::get('/health', fn() => response()->json(['code' => 200, 'message' => 'OK', 'data' => null]))->name('health');
+    Route::get('/health', fn() => response()->json(['code' => 200, 'message' => 'OK', 'data' => null]));
 
     // Auth (public)
     Route::post('/auth/login', [AuthController::class, 'login'])->name('auth.login');

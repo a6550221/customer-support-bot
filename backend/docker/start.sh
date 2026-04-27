@@ -1,22 +1,29 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
-# Wait for database
-echo "Waiting for database..."
-until php -r "new PDO('mysql:host=${DB_HOST};port=${DB_PORT};dbname=${DB_DATABASE}', '${DB_USERNAME}', '${DB_PASSWORD}');" 2>/dev/null; do
+echo "=== HelpDesk Starting ==="
+
+# Wait for MySQL (max 60 seconds)
+echo "Waiting for database connection..."
+MAX_TRIES=30
+COUNT=0
+until php -r "new PDO('mysql:host=${DB_HOST:-mysql};port=${DB_PORT:-3306};dbname=${DB_DATABASE:-helpdesk}', '${DB_USERNAME:-root}', '${DB_PASSWORD:-}');" 2>/dev/null || [ $COUNT -eq $MAX_TRIES ]; do
+  COUNT=$((COUNT+1))
+  echo "  DB not ready yet ($COUNT/$MAX_TRIES)..."
   sleep 2
 done
 
 echo "Running migrations..."
-php artisan migrate --force
+php artisan migrate --force --no-interaction
 
-echo "Seeding database..."
-php artisan db:seed --force
+echo "Seeding initial data..."
+php artisan db:seed --force --no-interaction
 
-echo "Clearing caches..."
+echo "Caching configuration..."
 php artisan config:cache
 php artisan route:cache
-php artisan storage:link
+php artisan view:cache
+php artisan storage:link || true
 
-echo "Starting application..."
-exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+echo "=== Starting services ==="
+exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf

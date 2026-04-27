@@ -2,7 +2,7 @@ FROM php:8.3-fpm
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git curl libpng-dev libonig-dev libxml2-dev zip unzip nginx supervisor \
+    git curl libpng-dev libonig-dev libxml2-dev zip unzip nginx supervisor dos2unix \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -18,12 +18,10 @@ RUN composer install --no-dev --no-scripts --prefer-dist --optimize-autoloader
 # Copy application
 COPY . .
 
-# Generate key and optimize
+# Generate key and cache config
 RUN cp .env.example .env \
     && php artisan key:generate \
-    && php artisan config:cache \
-    && php artisan route:cache \
-    && php artisan view:cache
+    && php artisan storage:link || true
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
@@ -35,9 +33,10 @@ COPY docker/nginx.conf /etc/nginx/sites-available/default
 # Supervisor config
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+# Copy and fix line endings on start script
+COPY docker/start.sh /start.sh
+RUN dos2unix /start.sh && chmod +x /start.sh
+
 EXPOSE 80
 
-COPY docker/start.sh /start.sh
-RUN chmod +x /start.sh
-
-CMD ["/start.sh"]
+CMD ["/bin/bash", "/start.sh"]

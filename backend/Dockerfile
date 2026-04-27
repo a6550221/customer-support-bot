@@ -18,7 +18,17 @@ RUN composer install --no-dev --no-scripts --prefer-dist --optimize-autoloader
 # Copy application
 COPY . .
 
-# Generate key and cache config
+# Ensure required directories exist
+RUN mkdir -p storage/app/private \
+             storage/app/public \
+             storage/framework/cache/data \
+             storage/framework/sessions \
+             storage/framework/testing \
+             storage/framework/views \
+             storage/logs \
+             bootstrap/cache
+
+# Generate app key
 RUN cp .env.example .env \
     && php artisan key:generate \
     && php artisan storage:link || true

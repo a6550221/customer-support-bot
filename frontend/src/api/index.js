@@ -1,8 +1,11 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+const BACKEND = import.meta.env.VITE_API_URL
+  || 'https://customer-support-bot-production-ec40.up.railway.app'
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api/v1` : '/api/v1',
+  baseURL: `${BACKEND}/api/v1`,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 })
 

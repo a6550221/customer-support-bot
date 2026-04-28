@@ -26,10 +26,27 @@ export const useChatStore = defineStore('chat', () => {
     return res.data
   }
 
-  async function closeSession(id) {
-    const res = await chatApi.close(id)
+  async function closeSession(id, createTicket = false) {
+    const res = await chatApi.close(id, createTicket)
     const idx = sessions.value.findIndex(s => s.id === id)
     if (idx !== -1) sessions.value[idx] = res.data
+    if (activeSession.value?.id === id) activeSession.value = res.data
+    return res.data
+  }
+
+  async function reopenSession(id) {
+    const res = await chatApi.reopen(id)
+    const idx = sessions.value.findIndex(s => s.id === id)
+    if (idx !== -1) sessions.value[idx] = res.data
+    if (activeSession.value?.id === id) activeSession.value = res.data
+    return res.data
+  }
+
+  async function updateVisitorInfo(id, data) {
+    const res = await chatApi.updateVisitorInfo(id, data)
+    const idx = sessions.value.findIndex(s => s.id === id)
+    if (idx !== -1) sessions.value[idx] = res.data
+    if (activeSession.value?.id === id) activeSession.value = res.data
     return res.data
   }
 
@@ -65,7 +82,7 @@ export const useChatStore = defineStore('chat', () => {
 
   return {
     sessions, activeSession, chatMessages, loading,
-    fetchSessions, acceptSession, closeSession, loadMessages, sendMessage,
-    onSessionUpdated, onChatMessage,
+    fetchSessions, acceptSession, closeSession, reopenSession, updateVisitorInfo,
+    loadMessages, sendMessage, onSessionUpdated, onChatMessage,
   }
 })

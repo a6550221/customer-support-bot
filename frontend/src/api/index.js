@@ -124,10 +124,12 @@ export const userApi = {
 export const chatApi = {
   sessions: () => api.get('/chat/sessions'),
   accept: id => api.put(`/chat/sessions/${id}/accept`),
-  close: id => api.put(`/chat/sessions/${id}/close`),
+  close: (id, createTicket = false) => api.put(`/chat/sessions/${id}/close`, { create_ticket: createTicket }),
+  reopen: id => api.put(`/chat/sessions/${id}/reopen`),
   sendMessage: (id, content) => api.post(`/chat/sessions/${id}/messages`, { content }),
   getMessages: id => api.get(`/chat/sessions/${id}/messages`),
   typing: id => api.post(`/chat/sessions/${id}/typing`),
+  updateVisitorInfo: (id, data) => api.put(`/chat/sessions/${id}/visitor-info`, data),
 }
 
 export default api

@@ -16,14 +16,17 @@
         class="sidebar-menu"
       >
         <el-menu-item index="/tickets">
-          <el-icon><Tickets /></el-icon>
+          <!-- Badge on icon, positioned top-right of icon -->
+          <el-badge :value="pendingCount" :hidden="pendingCount === 0" class="icon-badge">
+            <el-icon><Tickets /></el-icon>
+          </el-badge>
           <span>{{ t('nav.inbox') }}</span>
-          <el-badge v-if="pendingCount > 0" :value="pendingCount" class="badge" />
         </el-menu-item>
         <el-menu-item index="/chat">
-          <el-icon><ChatLineRound /></el-icon>
+          <el-badge :value="waitingChats" :hidden="waitingChats === 0" type="danger" class="icon-badge">
+            <el-icon><ChatLineRound /></el-icon>
+          </el-badge>
           <span>{{ t('nav.chat') }}</span>
-          <el-badge v-if="waitingChats > 0" :value="waitingChats" type="danger" class="badge" />
         </el-menu-item>
         <el-menu-item index="/dashboard">
           <el-icon><TrendCharts /></el-icon>
@@ -50,10 +53,41 @@
             <el-button size="small" :type="locale === 'en' ? 'primary' : ''" @click="switchLang('en')">EN</el-button>
           </el-button-group>
 
-          <!-- Notification bell -->
-          <el-badge :value="notifCount" :hidden="notifCount === 0">
-            <el-button :icon="Bell" circle @click="showNotifs = true" />
-          </el-badge>
+          <!-- Notification bell with popover -->
+          <el-popover placement="bottom-end" :width="320" trigger="click" popper-class="notif-popover">
+            <template #reference>
+              <el-badge :value="notifCount" :hidden="notifCount === 0" type="danger">
+                <el-button :icon="Bell" circle />
+              </el-badge>
+            </template>
+            <div class="notif-panel">
+              <div class="notif-header">
+                <span class="notif-title">通知</span>
+                <el-button link size="small" @click="notifCount = 0">全部已讀</el-button>
+              </div>
+              <div v-if="waitingSessionsList.length === 0 && recentEvents.length === 0" class="notif-empty">
+                <el-empty description="暫無通知" :image-size="50" />
+              </div>
+              <template v-for="s in waitingSessionsList" :key="'w'+s.id">
+                <div class="notif-item" @click="goToChat(s)">
+                  <div class="notif-dot waiting"></div>
+                  <div class="notif-content">
+                    <div class="notif-text">新對話請求：<strong>{{ s.visitor_name || '訪客' }}</strong></div>
+                    <div class="notif-time">{{ dayjs(s.created_at).fromNow() }}</div>
+                  </div>
+                </div>
+              </template>
+              <template v-for="ev in recentEvents" :key="'e'+ev.id">
+                <div class="notif-item">
+                  <div class="notif-dot"></div>
+                  <div class="notif-content">
+                    <div class="notif-text">{{ ev.text }}</div>
+                    <div class="notif-time">{{ dayjs(ev.time).fromNow() }}</div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </el-popover>
 
           <!-- Agent status + user dropdown -->
           <el-dropdown @command="handleUserCmd">
@@ -92,6 +126,9 @@ import { useChatStore } from '@/stores/chat'
 import { Bell } from '@element-plus/icons-vue'
 import Echo from 'laravel-echo'
 import Pusher from 'pusher-js'
+import dayjs from 'dayjs'
+import relativeTime from 'dayjs/plugin/relativeTime'
+dayjs.extend(relativeTime)
 
 const { t, locale } = useI18n()
 const router    = useRouter()
@@ -99,18 +136,26 @@ const auth      = useAuthStore()
 const ticketStore = useTicketStore()
 const chatStore   = useChatStore()
 
-const showNotifs = ref(false)
-const notifCount = ref(0)
+const notifCount  = ref(0)
+const recentEvents = ref([])
 
 const pendingCount = computed(() => ticketStore.tickets.filter(t => t.status === 'open').length)
 const waitingChats = computed(() => chatStore.sessions.filter(s => s.status === 'waiting').length)
-const statusType   = computed(() => ({
+// Sessions shown in bell notification panel
+const waitingSessionsList = computed(() =>
+  chatStore.sessions.filter(s => s.status === 'waiting').slice(0, 5)
+)
+const statusType = computed(() => ({
   online: 'success', busy: 'warning', offline: 'info',
 }[auth.user?.status] || 'info'))
 
 function switchLang(lang) {
   locale.value = lang
   localStorage.setItem('lang', lang)
+}
+
+function goToChat(session) {
+  router.push('/chat')
 }
 
 async function handleUserCmd(cmd) {
@@ -140,11 +185,15 @@ onMounted(() => {
     echo.channel('tickets').listen('.ticket.updated', e => {
       ticketStore.updateTicketInList(e.ticket)
       notifCount.value++
+      recentEvents.value.unshift({ id: Date.now(), text: `工單更新：${e.ticket.ticket_no}`, time: new Date() })
+      if (recentEvents.value.length > 10) recentEvents.value.pop()
     })
 
     echo.channel('chat-sessions').listen('.session.updated', e => {
       chatStore.onSessionUpdated(e.session)
-      if (e.session.status === 'waiting') notifCount.value++
+      if (e.session.status === 'waiting') {
+        notifCount.value++
+      }
     })
   }
 })
@@ -176,8 +225,17 @@ onUnmounted(() => {
 }
 
 .sidebar-menu { border-right: none; flex: 1; }
-.sidebar-menu .el-menu-item { position: relative; }
-.badge { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); }
+
+/* Badge on icon: top-right corner of the icon */
+.icon-badge {
+  display: inline-flex;
+  line-height: 1;
+}
+.icon-badge :deep(.el-badge__content) {
+  top: -2px;
+  right: -4px;
+  transform: none;
+}
 
 .content-area { flex-direction: column; overflow: hidden; }
 
@@ -192,9 +250,36 @@ onUnmounted(() => {
 }
 
 .header-right { display: flex; align-items: center; gap: 16px; }
-.lang-switch { }
 .user-info { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .user-name { font-size: 14px; font-weight: 500; }
 
 .main-content { padding: 0; overflow: auto; background: #F8FAFC; }
+
+/* Notification popover styles (global via popper-class) */
+</style>
+
+<style>
+.notif-popover { padding: 0 !important; }
+.notif-panel { max-height: 400px; overflow-y: auto; }
+.notif-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+  position: sticky; top: 0; background: #fff; z-index: 1;
+}
+.notif-title { font-weight: 600; font-size: 14px; color: #1e293b; }
+.notif-empty { padding: 24px; }
+.notif-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f8fafc;
+  transition: background .15s;
+}
+.notif-item:hover { background: #f8fafc; }
+.notif-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #94a3b8; flex-shrink: 0; margin-top: 5px;
+}
+.notif-dot.waiting { background: #f97316; }
+.notif-content { flex: 1; }
+.notif-text { font-size: 13px; color: #374151; line-height: 1.4; }
+.notif-time { font-size: 11px; color: #94a3b8; margin-top: 2px; }
 </style>

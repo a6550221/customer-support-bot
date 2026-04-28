@@ -33,7 +33,7 @@
           <div class="messages-scroll" ref="scrollRef">
             <div v-for="msg in ticketStore.messages" :key="msg.id" :class="['msg-item', msg.sender_type, msg.is_internal ? 'internal' : '']">
               <div class="msg-meta">
-                <span class="msg-sender">{{ msg.sender_type === 'agent' ? '坐席' : '客戶' }}</span>
+                <span class="msg-sender">{{ msg.sender_type === 'agent' ? (msg.sender_name || '坐席') : '客戶' }}</span>
                 <span v-if="msg.is_internal" class="internal-badge">內部備註</span>
                 <span class="msg-time">{{ formatTime(msg.created_at) }}</span>
               </div>

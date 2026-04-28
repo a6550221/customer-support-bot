@@ -40,7 +40,8 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendMessage(sessionId, content) {
     const res = await chatApi.sendMessage(sessionId, content)
-    chatMessages.value.push(res.data)
+    // FIX: use onChatMessage for deduplication instead of direct push
+    onChatMessage(res.data)
     return res.data
   }
 
@@ -53,7 +54,10 @@ export const useChatStore = defineStore('chat', () => {
 
   function onChatMessage(msg) {
     if (activeSession.value?.id === msg.session_id) {
-      chatMessages.value.push(msg)
+      // FIX: deduplicate by message ID to prevent Pusher + direct-push duplicates
+      if (!chatMessages.value.find(m => m.id === msg.id)) {
+        chatMessages.value.push(msg)
+      }
     }
     const session = sessions.value.find(s => s.id === msg.session_id)
     if (session) session.last_message = msg

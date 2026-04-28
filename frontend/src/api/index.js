@@ -20,9 +20,13 @@ api.interceptors.response.use(
   err => {
     const msg = err.response?.data?.message || '請求失敗，請稍後再試'
     if (err.response?.status === 401) {
+      // FIX: only redirect if not already on login page, and use location only
+      // if no token is present (avoids race with router.push during logout)
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     } else if (err.response?.status !== 422) {
       ElMessage.error(msg)
     }

@@ -118,6 +118,8 @@ const quickReplies = ref([])
 const isTyping    = ref(false)
 let typingTimer   = null
 let echo          = null
+// FIX: track current Pusher channel to avoid stacking listeners
+let activeChannel = null
 
 const activeId = computed(() => chatStore.activeSession?.id)
 
@@ -138,7 +140,13 @@ async function selectSession(s) {
   msgRef.value?.scrollTo({ top: msgRef.value.scrollHeight })
 
   if (echo) {
-    echo.channel(`chat.${s.id}`)
+    // FIX: stop listening on previous channel before subscribing to new one
+    if (activeChannel) {
+      activeChannel.stopListening('.chat.message')
+      activeChannel.stopListening('.typing')
+    }
+    activeChannel = echo.channel(`chat.${s.id}`)
+    activeChannel
       .listen('.chat.message', e => { chatStore.onChatMessage(e.message); scrollBottom() })
       .listen('.typing', () => {
         isTyping.value = true

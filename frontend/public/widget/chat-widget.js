@@ -1,7 +1,6 @@
 (function () {
   'use strict';
 
-  // Read API base from data-api attribute on the script tag, or default to relative /api/v1
   const scriptTag = document.currentScript ||
     Array.from(document.querySelectorAll('script[src*="chat-widget"]')).pop();
   const API_URL = (scriptTag && scriptTag.getAttribute('data-api')) || '/api/v1';
@@ -132,7 +131,19 @@
   let sessionToken = null;
   let sessionId    = null;
   let pollInterval = null;
+  // FIX: lastTs must always be an ISO string or null, never a Date object
   let lastTs       = null;
+  // FIX: track sent message IDs to avoid duplicates
+  let shownMsgIds  = new Set();
+  // FIX: prevent double-send while in flight
+  let sending      = false;
+
+  function toIsoString(val) {
+    if (!val) return new Date().toISOString();
+    if (typeof val === 'string') return val;
+    if (val instanceof Date) return val.toISOString();
+    return new Date(val).toISOString();
+  }
 
   function renderInitForm() {
     document.getElementById('hd-body').innerHTML = `
@@ -168,7 +179,11 @@
       sessionId    = data.data.session_id;
 
       renderChatUI(name);
+      // FIX: use null as lastTs initially; server will return real timestamps
+      lastTs = null;
       addMessage({ sender_type: 'system', content: '您好！客服人員將在幾分鐘內回覆您。', created_at: new Date() });
+      // Reset lastTs to null so first poll gets ALL server messages
+      lastTs = null;
       startPolling();
     } catch (e) {
       btn.textContent = '開始對話';
@@ -189,15 +204,31 @@
       </div>
     `;
 
-    document.getElementById('hd-send').addEventListener('click', sendMessage);
-    document.getElementById('hd-textarea').addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    const sendBtn = document.getElementById('hd-send');
+    const textarea = document.getElementById('hd-textarea');
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    // FIX: use keydown + compositionend tracking to prevent IME double-fire
+    let isComposing = false;
+    textarea.addEventListener('compositionstart', () => { isComposing = true; });
+    textarea.addEventListener('compositionend',   () => { isComposing = false; });
+    textarea.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
+        e.preventDefault();
+        sendMessage();
+      }
     });
   }
 
   function addMessage(msg) {
     const container = document.getElementById('hd-messages');
     if (!container) return;
+
+    // FIX: skip duplicates by server message ID
+    if (msg.id && shownMsgIds.has(msg.id)) return;
+    if (msg.id) shownMsgIds.add(msg.id);
+
     const div = document.createElement('div');
     div.className = `hd-msg ${msg.sender_type}`;
     div.innerHTML = `
@@ -206,35 +237,55 @@
     `;
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
-    lastTs = msg.created_at || new Date().toISOString();
+
+    // FIX: always store lastTs as proper ISO string, ONLY from server timestamps
+    if (msg.id && msg.created_at) {
+      lastTs = toIsoString(msg.created_at);
+    }
   }
 
   async function sendMessage() {
+    // FIX: prevent double-send
+    if (sending) return;
     const ta  = document.getElementById('hd-textarea');
     const msg = ta.value.trim();
     if (!msg || !sessionId) return;
-    ta.value = '';
 
+    sending = true;
+    ta.value = '';
     addMessage({ sender_type: 'visitor', content: msg, created_at: new Date() });
 
-    await fetch(`${API_URL}/chat/sessions/${sessionId}/visitor-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: msg }),
-    }).catch(e => console.error('[HelpDesk Widget]', e));
+    try {
+      await fetch(`${API_URL}/chat/sessions/${sessionId}/visitor-message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: msg }),
+      });
+    } catch (e) {
+      console.error('[HelpDesk Widget]', e);
+    } finally {
+      sending = false;
+    }
   }
 
   function startPolling() {
+    if (pollInterval) clearInterval(pollInterval);
     pollInterval = setInterval(async () => {
       if (!sessionId) return;
       try {
-        const url = `${API_URL}/chat/sessions/${sessionId}/poll${lastTs ? '?since=' + encodeURIComponent(lastTs) : ''}`;
+        // FIX: only add ?since= when lastTs is a valid ISO string from server
+        const url = lastTs
+          ? `${API_URL}/chat/sessions/${sessionId}/poll?since=${encodeURIComponent(lastTs)}`
+          : `${API_URL}/chat/sessions/${sessionId}/poll`;
         const res  = await fetch(url);
+        if (!res.ok) return; // silently skip on server error
         const data = await res.json();
         (data.data || []).forEach(msg => {
           if (msg.sender_type !== 'visitor') addMessage(msg);
         });
-      } catch {}
+      } catch (e) {
+        console.warn('[HelpDesk Widget] poll error', e);
+      }
     }, 3000);
   }
 

@@ -18,11 +18,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    try { await authApi.logout() } catch {}
+    // FIX: clear local state FIRST so router guard and interceptors see no token
+    const oldToken = token.value
     token.value = ''
     user.value  = null
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    // Fire logout API in background (don't await — avoids race with router)
+    if (oldToken) {
+      authApi.logout().catch(() => {})
+    }
   }
 
   async function fetchMe() {

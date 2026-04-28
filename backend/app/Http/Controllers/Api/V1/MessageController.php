@@ -15,6 +15,17 @@ class MessageController extends Controller
     {
         $messages = $ticket->messages()->orderBy('created_at')->get();
 
+        // Append sender names for agent messages
+        $agentIds = $messages->where('sender_type', 'agent')->pluck('sender_id')->unique()->filter();
+        if ($agentIds->isNotEmpty()) {
+            $names = \App\Models\User::whereIn('id', $agentIds)->pluck('name', 'id');
+            $messages->each(function ($msg) use ($names) {
+                if ($msg->sender_type === 'agent') {
+                    $msg->sender_name = $names[$msg->sender_id] ?? '坐席';
+                }
+            });
+        }
+
         return response()->json(['code' => 200, 'message' => 'success', 'data' => $messages]);
     }
 
@@ -55,7 +66,8 @@ class MessageController extends Controller
         // Unlock ticket
         $ticket->update(['locked_by' => null, 'locked_at' => null, 'status' => 'pending']);
 
-        broadcast(new MessageSent($message->load([])))->toOthers();
+        $message->sender_name = $request->user()->name;
+        broadcast(new MessageSent($message))->toOthers();
 
         return response()->json(['code' => 201, 'message' => 'Message sent.', 'data' => $message], 201);
     }

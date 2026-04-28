@@ -81,8 +81,8 @@ class ChatController extends Controller
     {
         $session->update(['status' => 'closed', 'closed_at' => now()]);
 
-        // Convert to ticket if not already
-        if (!$session->ticket_id) {
+        // Only convert to ticket when explicitly requested
+        if ($request->boolean('create_ticket') && !$session->ticket_id) {
             $customer = null;
             if ($session->visitor_email) {
                 $customer = Customer::firstOrCreate(
@@ -94,20 +94,58 @@ class ChatController extends Controller
             $ticket = Ticket::create([
                 'ticket_no'         => Ticket::generateTicketNo(),
                 'subject'           => 'Live Chat: ' . ($session->visitor_name ?? 'Visitor'),
-                'status'            => 'resolved',
+                'status'            => 'open',
                 'priority'          => 'medium',
                 'customer_id'       => $customer?->id,
                 'assigned_agent_id' => $session->agent_id,
-                'resolved_at'       => now(),
                 'source'            => 'live_chat',
             ]);
 
             $session->update(['ticket_id' => $ticket->id]);
         }
 
+        ChatMessage::create([
+            'session_id'  => $session->id,
+            'sender_type' => 'system',
+            'content'     => '對話已結束',
+        ]);
+
         broadcast(new ChatSessionUpdated($session->fresh()))->toOthers();
 
         return response()->json(['code' => 200, 'message' => 'Session closed.', 'data' => $session->fresh()]);
+    }
+
+    public function reopen(Request $request, ChatSession $session)
+    {
+        if ($session->status !== 'closed') {
+            return response()->json(['code' => 400, 'message' => 'Session is not closed.', 'data' => null], 400);
+        }
+
+        $session->update(['status' => 'waiting', 'closed_at' => null, 'agent_id' => null, 'accepted_at' => null]);
+
+        ChatMessage::create([
+            'session_id'  => $session->id,
+            'sender_type' => 'system',
+            'content'     => '對話已重新開放，等候坐席接入',
+        ]);
+
+        broadcast(new ChatSessionUpdated($session->fresh()))->toOthers();
+
+        return response()->json(['code' => 200, 'message' => 'Session reopened.', 'data' => $session->fresh()]);
+    }
+
+    public function updateVisitorInfo(Request $request, ChatSession $session)
+    {
+        $request->validate([
+            'visitor_name'  => 'sometimes|string|max:100',
+            'visitor_email' => 'sometimes|nullable|email',
+            'visitor_phone' => 'sometimes|nullable|string|max:50',
+            'notes'         => 'sometimes|nullable|string|max:2000',
+        ]);
+
+        $session->update($request->only('visitor_name', 'visitor_email', 'visitor_phone', 'notes'));
+
+        return response()->json(['code' => 200, 'message' => 'Updated.', 'data' => $session->fresh()]);
     }
 
     public function sendMessage(Request $request, ChatSession $session)
@@ -121,7 +159,8 @@ class ChatController extends Controller
             'content'     => $request->content,
         ]);
 
-        broadcast(new ChatMessageSent($msg->load([])))->toOthers();
+        $msg->sender_name = $request->user()->name;
+        broadcast(new ChatMessageSent($msg))->toOthers();
 
         return response()->json(['code' => 201, 'message' => 'Sent.', 'data' => $msg], 201);
     }
@@ -154,7 +193,21 @@ class ChatController extends Controller
     public function messages(ChatSession $session)
     {
         $messages = $session->messages()->orderBy('created_at')->get();
+        $this->appendSenderNames($messages);
         return response()->json(['code' => 200, 'message' => 'success', 'data' => $messages]);
+    }
+
+    private function appendSenderNames($messages): void
+    {
+        $agentIds = $messages->where('sender_type', 'agent')->pluck('sender_id')->unique()->filter();
+        if ($agentIds->isNotEmpty()) {
+            $names = \App\Models\User::whereIn('id', $agentIds)->pluck('name', 'id');
+            $messages->each(function ($msg) use ($names) {
+                if ($msg->sender_type === 'agent') {
+                    $msg->sender_name = $names[$msg->sender_id] ?? '坐席';
+                }
+            });
+        }
     }
 
     public function poll(Request $request, ChatSession $session)

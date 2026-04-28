@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class ChatSession extends Model
 {
     protected $fillable = [
-        'session_token', 'visitor_name', 'visitor_email', 'source_url',
-        'browser', 'agent_id', 'ticket_id', 'status', 'accepted_at', 'closed_at',
+        'session_token', 'visitor_name', 'visitor_email', 'visitor_phone', 'notes',
+        'source_url', 'browser', 'agent_id', 'ticket_id', 'status', 'accepted_at', 'closed_at',
     ];
 
     protected $casts = [

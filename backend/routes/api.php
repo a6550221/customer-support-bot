@@ -67,6 +67,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('/chat/sessions', [ChatController::class, 'sessions'])->name('chat.sessions');
         Route::put('/chat/sessions/{session}/accept', [ChatController::class, 'accept'])->name('chat.accept');
         Route::put('/chat/sessions/{session}/close', [ChatController::class, 'close'])->name('chat.close');
+        Route::put('/chat/sessions/{session}/reopen', [ChatController::class, 'reopen'])->name('chat.reopen');
+        Route::put('/chat/sessions/{session}/visitor-info', [ChatController::class, 'updateVisitorInfo'])->name('chat.visitorInfo');
         Route::post('/chat/sessions/{session}/messages', [ChatController::class, 'sendMessage'])->name('chat.sendMessage');
         Route::post('/chat/sessions/{session}/typing', [ChatController::class, 'typing'])->name('chat.typing');
         Route::get('/chat/sessions/{session}/messages', [ChatController::class, 'messages'])->name('chat.messages');

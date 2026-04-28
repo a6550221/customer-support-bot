@@ -15,18 +15,15 @@
         active-text-color="#ffffff"
         class="sidebar-menu"
       >
-        <el-menu-item index="/tickets">
-          <!-- Badge on icon, positioned top-right of icon -->
-          <el-badge :value="pendingCount" :hidden="pendingCount === 0" class="icon-badge">
-            <el-icon><Tickets /></el-icon>
-          </el-badge>
+        <el-menu-item index="/tickets" class="menu-item-badged">
+          <el-icon><Tickets /></el-icon>
           <span>{{ t('nav.inbox') }}</span>
+          <span v-if="pendingCount > 0" class="menu-badge">{{ pendingCount }}</span>
         </el-menu-item>
-        <el-menu-item index="/chat">
-          <el-badge :value="waitingChats" :hidden="waitingChats === 0" type="danger" class="icon-badge">
-            <el-icon><ChatLineRound /></el-icon>
-          </el-badge>
+        <el-menu-item index="/chat" class="menu-item-badged">
+          <el-icon><ChatLineRound /></el-icon>
           <span>{{ t('nav.chat') }}</span>
+          <span v-if="waitingChats > 0" class="menu-badge danger">{{ waitingChats }}</span>
         </el-menu-item>
         <el-menu-item index="/dashboard">
           <el-icon><TrendCharts /></el-icon>
@@ -226,16 +223,27 @@ onUnmounted(() => {
 
 .sidebar-menu { border-right: none; flex: 1; }
 
-/* Badge on icon: top-right corner of the icon */
-.icon-badge {
+/* Badge on right side of menu item, vertically centered */
+.menu-item-badged { position: relative; }
+.menu-badge {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #94a3b8;
+  color: #fff;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 0 5px;
   line-height: 1;
 }
-.icon-badge :deep(.el-badge__content) {
-  top: -2px;
-  right: -4px;
-  transform: none;
-}
+.menu-badge.danger { background: #f56c6c; }
 
 .content-area { flex-direction: column; overflow: hidden; }
 

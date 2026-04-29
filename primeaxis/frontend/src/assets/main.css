@@ -1,0 +1,89 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', 'Noto Sans TC', -apple-system, sans-serif;
+  background: #f7f5f0;
+  color: #2c2520;
+  height: 100vh;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d4cfc8; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #b8b2aa; }
+
+/* PrimeAxis brand token overrides */
+:root {
+  --pa-orange: #e8851a;
+  --pa-orange-light: #fff3e6;
+  --pa-orange-hover: #fdf1e3;
+  --pa-orange-border: #f5debb;
+  --pa-green: #0d4a38;
+  --pa-success: #2a9d5c;
+  --pa-danger: #d44e2a;
+  --pa-warning: #c9a227;
+  --pa-bg: #f7f5f0;
+  --pa-surface: #ffffff;
+  --pa-border: #f0ede8;
+  --pa-text: #2c2520;
+  --pa-text-muted: #706560;
+  --pa-text-light: #9e9890;
+  --pa-sidebar: 220px;
+}
+
+/* Element Plus overrides */
+.el-button--primary {
+  --el-button-bg-color: var(--pa-orange) !important;
+  --el-button-border-color: var(--pa-orange) !important;
+  --el-button-hover-bg-color: #d4760f !important;
+  --el-button-hover-border-color: #d4760f !important;
+  --el-button-active-bg-color: #c06910 !important;
+}
+
+.el-menu { --el-menu-active-color: var(--pa-orange) !important; }
+
+.el-tag--warning { background: var(--pa-orange-light); color: var(--pa-orange); border-color: var(--pa-orange-border); }
+
+/* Screen fade animation */
+.screen-enter-active { animation: fadeSlideIn 0.18s ease; }
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Waveform animation */
+@keyframes waveBar {
+  0%, 100% { transform: scaleY(0.1); }
+  50%       { transform: scaleY(1); }
+}
+
+/* Ring animation for calls */
+@keyframes ring {
+  0%,100% { transform: scale(1); opacity: 0.5; }
+  50%      { transform: scale(1.35); opacity: 0; }
+}
+
+/* Blink for status indicators */
+@keyframes blink {
+  0%,100% { opacity: 1; }
+  50%     { opacity: 0.3; }
+}
+
+/* Hover rows in tables */
+.hover-row:hover { background: #fdf5ec !important; cursor: pointer; }
+
+/* Card style utility */
+.pa-card {
+  background: var(--pa-surface);
+  border: 1px solid var(--pa-border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+/* Status tags */
+.status-active   { background: #e6f7ef; color: #2a9d5c; border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.status-transit  { background: #fff3e6; color: #e8851a; border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.status-pending  { background: #fff9e6; color: #c9a227; border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.status-exception{ background: #fdeee8; color: #d44e2a; border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; }
+.status-closed   { background: #f0ede8; color: #9e9890; border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 600; }

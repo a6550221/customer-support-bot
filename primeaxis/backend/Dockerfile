@@ -37,8 +37,9 @@ RUN cp .env.example .env \
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache \
     && chmod -R 775 /var/www/storage /var/www/bootstrap/cache
 
-# Nginx config
-COPY docker/nginx.conf /etc/nginx/sites-available/default
+# Nginx config (as template for envsubst at runtime)
+RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-available/default
+COPY docker/nginx.conf /etc/nginx/conf.d/nginx.conf.template
 
 # Supervisor config
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
@@ -47,6 +48,7 @@ COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/start.sh /start.sh
 RUN dos2unix /start.sh && chmod +x /start.sh
 
-EXPOSE 80
+EXPOSE 8080
+ENV PORT=8080
 
 CMD ["/bin/bash", "/start.sh"]

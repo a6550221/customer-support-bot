@@ -32,9 +32,5 @@ php artisan route:cache || echo "  [warn] route:cache failed, running without ro
 php artisan view:cache || true
 php artisan storage:link || true
 
-echo "Configuring nginx port (PORT=${PORT:-8080})..."
-export PORT=${PORT:-8080}
-envsubst '$PORT' < /etc/nginx/conf.d/nginx.conf.template > /etc/nginx/conf.d/default.conf
-
 echo "=== Starting services ==="
 exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf

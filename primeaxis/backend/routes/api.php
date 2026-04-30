@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\DashboardController;
 
@@ -54,10 +55,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/users',                 fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
         Route::put('/users/{id}',            fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
 
-        // Chat (stub)
-        Route::get('/chat/sessions',         fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::get('/chat/sessions/{id}/messages', fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::post('/chat/sessions/{id}/messages', fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
+        // Chat
+        Route::get('/chat/sessions',                    [ChatController::class, 'sessions']);
+        Route::post('/chat/sessions',                   [ChatController::class, 'createSession']);
+        Route::get('/chat/sessions/{id}/messages',      [ChatController::class, 'messages']);
+        Route::post('/chat/sessions/{id}/messages',     [ChatController::class, 'sendMessage']);
     });
 
 });

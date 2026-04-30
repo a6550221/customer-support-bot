@@ -69,6 +69,7 @@
       <!-- Center: Chat -->
       <div class="chat-panel">
         <div class="chat-messages" ref="msgRef">
+          <div v-if="chatLoading" class="chat-loading">載入對話中…</div>
           <div v-for="msg in messages" :key="msg.id" :class="['msg-row', msg.from]">
             <div v-if="msg.from === 'axi'" class="axi-label">
               <span class="axi-dot">✦</span> Axi
@@ -150,10 +151,11 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onUnmounted } from 'vue'
+import { ref, nextTick, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import EmailInbox from './EmailInbox.vue'
 import InfoField from './InfoField.vue'
+import { chatApi } from '@/api/index.js'
 
 const activeTab = ref('voice')
 const tabs = [
@@ -162,17 +164,17 @@ const tabs = [
 ]
 
 // ── Voice state ──
-const callState   = ref('idle')   // idle | ringing | active | ended
+const callState    = ref('idle')   // idle | ringing | active | ended
 const callDuration = ref(0)
-const muted   = ref(false)
-const onHold  = ref(false)
-const waveHeights = ref(Array(32).fill(4))
+const muted        = ref(false)
+const onHold       = ref(false)
+const waveHeights  = ref(Array(32).fill(4))
 let timerInterval = null, waveInterval = null
 
 const callStateLabel = { idle: '等待來電', ringing: '來電中...', active: '通話中', ended: '通話結束' }
 
 function fmtDuration(s) {
-  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
 function simulateRinging() {
@@ -199,19 +201,92 @@ function endCall() {
 
 onUnmounted(() => { clearInterval(timerInterval); clearInterval(waveInterval) })
 
-// ── Chat ──
-const msgRef = ref()
-const inputText  = ref('')
-const axiThinking = ref(false)
-const infoTab = ref('order')
+// ── Chat (API-backed) ──
+const SESSION_KEY = 'pa_chat_session_id'
 
-const messages = ref([
-  { id: 1, from: 'axi',      text: '您好！我是 Axi，PrimeAxis 智能助理。請問有什麼可以幫您？\nHello! I\'m Axi. How may I help?', time: '10:28' },
-  { id: 2, from: 'customer', text: '你好，我想查一下我的貨物到哪裡了，訂單號是 PA-2024-0890', time: '10:29' },
-  { id: 3, from: 'axi',      text: '查詢結果：訂單 PA-2024-0890 狀態為「異常」，派送地址資訊不完整，需要客服跟進。', time: '10:29' },
-  { id: 4, from: 'agent',    text: '您好，我是客服陳小明。我看到您的訂單有地址問題需要確認。', time: '10:30' },
-  { id: 5, from: 'customer', text: '是的，地址應該是九龍灣宏開道8號，請幫我更新', time: '10:31' },
-])
+const msgRef      = ref()
+const inputText   = ref('')
+const axiThinking = ref(false)
+const infoTab     = ref('order')
+const chatLoading = ref(false)
+const sessionId   = ref(null)
+
+/** Convert API message → UI message */
+function mapMsg(m) {
+  const d = new Date(m.created_at)
+  const time = isNaN(d)
+    ? '--:--'
+    : d.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' })
+  return { id: m.id, from: m.from_type, text: m.content, time }
+}
+
+const messages = ref([])
+
+async function getOrCreateSession() {
+  const stored = localStorage.getItem(SESSION_KEY)
+  if (stored) {
+    sessionId.value = parseInt(stored)
+    return
+  }
+  try {
+    const res = await chatApi.createSession({
+      customer_name: linkedOrder.value.customer,
+      order_no:      linkedOrder.value.id,
+    })
+    sessionId.value = res.data.id
+    localStorage.setItem(SESSION_KEY, sessionId.value)
+  } catch {
+    ElMessage.error('無法建立對話 Session')
+  }
+}
+
+async function loadMessages() {
+  if (!sessionId.value) return
+  chatLoading.value = true
+  try {
+    const res = await chatApi.messages(sessionId.value)
+    messages.value = (res.data || []).map(mapMsg)
+    scrollBottom()
+  } catch (err) {
+    // Session may have been deleted on server — create a fresh one
+    if (err?.status === 404 || err?.code === 404) {
+      localStorage.removeItem(SESSION_KEY)
+      sessionId.value = null
+      await getOrCreateSession()
+      await loadMessages()
+    }
+  } finally {
+    chatLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  await getOrCreateSession()
+  await loadMessages()
+})
+
+async function sendMessage() {
+  const text = inputText.value.trim()
+  if (!text || !sessionId.value) return
+
+  // Optimistic UI
+  const optimistic = {
+    id: Date.now(), from: 'agent', text,
+    time: new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' }),
+  }
+  messages.value.push(optimistic)
+  inputText.value = ''
+  scrollBottom()
+
+  try {
+    await chatApi.sendMessage(sessionId.value, { content: text, from_type: 'agent' })
+  } catch {
+    ElMessage.error('訊息發送失敗，請重試')
+    messages.value = messages.value.filter(m => m.id !== optimistic.id)
+  }
+}
+
+function appendToChat(note) { inputText.value = note }
 
 const axiResponses = [
   '根據系統資料，訂單 PA-2024-0890 已於昨日 18:32 抵達北京中轉站。建議更新地址後安排明日重新派送。',
@@ -221,30 +296,26 @@ const axiResponses = [
 ]
 let axiIdx = 0
 
-function sendMessage() {
-  if (!inputText.value.trim()) return
-  messages.value.push({
-    id: Date.now(), from: 'agent',
-    text: inputText.value,
-    time: new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' }),
-  })
-  inputText.value = ''
-  scrollBottom()
-}
-
-function appendToChat(note) { inputText.value = note }
-
-function askAxi() {
+async function askAxi() {
+  if (!sessionId.value) return
   axiThinking.value = true
-  setTimeout(() => {
+  const axiText = axiResponses[axiIdx % axiResponses.length]
+  axiIdx++
+
+  setTimeout(async () => {
     axiThinking.value = false
-    messages.value.push({
-      id: Date.now(), from: 'axi',
-      text: axiResponses[axiIdx % axiResponses.length],
+    const optimistic = {
+      id: Date.now(), from: 'axi', text: axiText,
       time: new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' }),
-    })
-    axiIdx++
+    }
+    messages.value.push(optimistic)
     scrollBottom()
+
+    try {
+      await chatApi.sendMessage(sessionId.value, { content: axiText, from_type: 'axi' })
+    } catch {
+      // silent — optimistic message still shows
+    }
   }, 1600)
 }
 
@@ -262,9 +333,9 @@ const linkedOrder = ref({
 })
 
 const callHistory = [
-  { id:1, type:'call',  text:'通話 08:32 (2分15秒)', time:'今日 10:30' },
-  { id:2, type:'chat',  text:'文字對話 - 訂單查詢',  time:'2024-11-25' },
-  { id:3, type:'call',  text:'通話 未接聽',           time:'2024-11-24' },
+  { id: 1, type: 'call', text: '通話 08:32 (2分15秒)', time: '今日 10:30' },
+  { id: 2, type: 'chat', text: '文字對話 - 訂單查詢',  time: '2024-11-25' },
+  { id: 3, type: 'call', text: '通話 未接聽',           time: '2024-11-24' },
 ]
 
 const quickNotes = ['地址已確認', '客戶已告知延誤', '安排重新派送', '需要上門取件', '轉交主管處理']
@@ -483,6 +554,11 @@ const quickNotes = ['地址已確認', '客戶已告知延誤', '安排重新派
 .hist-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
 .hist-text { font-size: 12px; color: #2c2520; }
 .hist-time { font-size: 10px; color: #9e9890; margin-top: 2px; }
+
+.chat-loading {
+  text-align: center; color: #9e9890; font-size: 12px; padding: 20px 0;
+  animation: blink 1.2s infinite;
+}
 
 @keyframes ring {
   0%,100% { transform: scale(1); opacity: 0.5; }

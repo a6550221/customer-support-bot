@@ -80,9 +80,10 @@ export const settingsApi = {
 }
 
 export const chatApi = {
-  sessions:    () => api.get('/chat/sessions'),
-  messages:    id => api.get(`/chat/sessions/${id}/messages`),
-  sendMessage: (id, content) => api.post(`/chat/sessions/${id}/messages`, { content }),
+  sessions:       ()           => api.get('/chat/sessions'),
+  createSession:  data         => api.post('/chat/sessions', data),
+  messages:       id           => api.get(`/chat/sessions/${id}/messages`),
+  sendMessage:    (id, payload) => api.post(`/chat/sessions/${id}/messages`, payload),
 }
 
 export default api

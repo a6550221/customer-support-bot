@@ -10,7 +10,7 @@ return new class extends Migration {
         // Add `active` flag to users if missing
         if (Schema::hasTable('users') && !Schema::hasColumn('users', 'active')) {
             Schema::table('users', function (Blueprint $table) {
-                $table->boolean('active')->default(true)->after('avatar');
+                $table->boolean('active')->default(true);
             });
         }
 
@@ -18,7 +18,7 @@ return new class extends Migration {
         if (!Schema::hasTable('knowledge_base')) {
             Schema::create('knowledge_base', function (Blueprint $table) {
                 $table->id();
-                $table->enum('type', ['faq', 'policy', 'template', 'guide'])->default('faq');
+                $table->string('type', 20)->default('faq');
                 $table->string('question');
                 $table->text('answer');
                 $table->unsignedInteger('usage_count')->default(0);
@@ -26,18 +26,18 @@ return new class extends Migration {
             });
         }
 
-        // Followup tasks
+        // Followup tasks  (plain index, no FK — avoids MySQL strict mode issues)
         if (!Schema::hasTable('followup_tasks')) {
             Schema::create('followup_tasks', function (Blueprint $table) {
                 $table->id();
                 $table->string('title');
-                $table->string('order_no')->nullable()->index();
-                $table->string('customer')->nullable();
-                $table->enum('priority', ['high', 'medium', 'low'])->default('medium');
-                $table->enum('status', ['todo', 'inprogress', 'done'])->default('todo');
-                $table->string('due_time')->nullable();   // e.g. "14:00"
+                $table->string('order_no', 50)->nullable()->index();
+                $table->string('customer', 100)->nullable();
+                $table->string('priority', 10)->default('medium');
+                $table->string('status', 20)->default('todo');
+                $table->string('due_time', 10)->nullable();
                 $table->text('note')->nullable();
-                $table->foreignId('assignee_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->unsignedBigInteger('assignee_id')->nullable()->index();
                 $table->timestamps();
             });
         }
@@ -46,7 +46,7 @@ return new class extends Migration {
         if (!Schema::hasTable('settings')) {
             Schema::create('settings', function (Blueprint $table) {
                 $table->id();
-                $table->string('key')->unique();
+                $table->string('key', 100)->unique();
                 $table->longText('value')->nullable();
                 $table->timestamps();
             });

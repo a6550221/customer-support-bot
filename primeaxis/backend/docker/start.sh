@@ -21,16 +21,17 @@ echo 'Database ready.' . PHP_EOL;
 "
 
 echo "Running migrations..."
-php artisan migrate --force --no-interaction
+php artisan migrate --force --no-interaction || echo "[warn] Migration had errors — continuing startup"
 
 echo "Seeding initial data..."
-php artisan db:seed --force --no-interaction
+php artisan db:seed --force --no-interaction || echo "[warn] Seed had errors — continuing startup"
 
 echo "Caching configuration..."
-php artisan config:cache
-php artisan route:cache || echo "  [warn] route:cache failed, running without route cache"
-php artisan view:cache || true
-php artisan storage:link || true
+php artisan config:clear   || true
+php artisan config:cache   || echo "[warn] config:cache failed — using file-based config"
+php artisan route:cache    || echo "[warn] route:cache failed — running without route cache"
+php artisan view:cache     || true
+php artisan storage:link   || true
 
 echo "Configuring nginx on PORT=${PORT:-80}..."
 envsubst '${PORT}' < /etc/nginx/conf.d/default.conf.template > /etc/nginx/conf.d/default.conf

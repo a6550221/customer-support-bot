@@ -8,15 +8,15 @@ class Setting extends Model
 {
     protected $fillable = ['key', 'value'];
 
-    /** Get a setting value by key, with optional default */
-    public static function get(string $key, mixed $default = null): mixed
+    /** Retrieve a setting value by key, with optional default */
+    public static function fetch(string $key, mixed $default = null): mixed
     {
         $row = static::where('key', $key)->first();
         return $row ? $row->value : $default;
     }
 
-    /** Set (upsert) a setting value */
-    public static function set(string $key, mixed $value): void
+    /** Upsert a setting value */
+    public static function put(string $key, mixed $value): void
     {
         static::updateOrCreate(['key' => $key], ['value' => $value]);
     }

@@ -10,8 +10,8 @@ class SettingsController extends Controller
     /** GET /settings — return system config + notifications as structured JSON */
     public function show()
     {
-        $system = Setting::get('system_config', json_encode($this->defaultSystemConfigs()));
-        $notifs = Setting::get('notifications',  json_encode($this->defaultNotifications()));
+        $system = Setting::fetch('system_config', json_encode($this->defaultSystemConfigs()));
+        $notifs = Setting::fetch('notifications',  json_encode($this->defaultNotifications()));
 
         return response()->json([
             'code' => 200, 'message' => 'success',
@@ -26,10 +26,10 @@ class SettingsController extends Controller
     public function update(Request $request)
     {
         if ($request->has('system_configs')) {
-            Setting::set('system_config', json_encode($request->system_configs));
+            Setting::put('system_config', json_encode($request->system_configs));
         }
         if ($request->has('notifications')) {
-            Setting::set('notifications', json_encode($request->notifications));
+            Setting::put('notifications', json_encode($request->notifications));
         }
 
         return response()->json(['code' => 200, 'message' => 'success', 'data' => null]);

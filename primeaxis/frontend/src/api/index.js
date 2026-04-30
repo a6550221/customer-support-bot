@@ -69,14 +69,14 @@ export const reportApi = {
 }
 
 export const settingsApi = {
-  getKnowledge:    () => api.get('/settings/knowledge'),
-  saveKnowledge:   data => api.put('/settings/knowledge', data),
-  createKnowledge: data => api.post('/settings/knowledge', data),
-  deleteKnowledge: id   => api.delete(`/settings/knowledge/${id}`),
-  getUsers:    () => api.get('/users'),
-  updateUser:  (id, d) => api.put(`/users/${id}`, d),
-  getSettings: () => api.get('/settings'),
-  saveSettings: data => api.put('/settings', data),
+  getKnowledge:    ()         => api.get('/settings/knowledge'),
+  createKnowledge: data       => api.post('/settings/knowledge', data),
+  updateKnowledge: (id, data) => api.put(`/settings/knowledge/${id}`, data),
+  deleteKnowledge: id         => api.delete(`/settings/knowledge/${id}`),
+  getUsers:        ()         => api.get('/users'),
+  updateUser:      (id, d)    => api.put(`/users/${id}`, d),
+  getSettings:     ()         => api.get('/settings'),
+  saveSettings:    data       => api.put('/settings', data),
 }
 
 export const chatApi = {

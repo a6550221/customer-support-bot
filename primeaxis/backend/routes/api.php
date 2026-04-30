@@ -3,8 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ChatController;
-use App\Http\Controllers\OrderController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FollowupController;
+use App\Http\Controllers\KnowledgeController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\UsersController;
 
 Route::prefix('v1')->group(function () {
 
@@ -32,34 +36,36 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders/{order}/tracking',[OrderController::class, 'tracking']);
         Route::get('/orders/{order}/timeline',[OrderController::class, 'tracking']);
 
-        // Followup (stub — returns empty list)
-        Route::get('/followup',              fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::post('/followup',             fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::put('/followup/{id}',         fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
+        // Followup
+        Route::get('/followup',              [FollowupController::class, 'index']);
+        Route::post('/followup',             [FollowupController::class, 'store']);
+        Route::put('/followup/{id}',         [FollowupController::class, 'update']);
 
-        // Reports (stub)
+        // Reports (stub — no DB model for report aggregates yet)
         Route::get('/reports/stats',         fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
         Route::get('/reports/agents',        fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
         Route::post('/reports/auto-send',    fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
         Route::get('/reports/auto-send',     fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
 
-        // Settings / knowledge (stub)
-        Route::get('/settings/knowledge',    fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::post('/settings/knowledge',   fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::put('/settings/knowledge',    fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::delete('/settings/knowledge/{id}', fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::get('/settings',              fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::put('/settings',              fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
+        // Settings
+        Route::get('/settings',              [SettingsController::class, 'show']);
+        Route::put('/settings',              [SettingsController::class, 'update']);
+
+        // Knowledge base
+        Route::get('/settings/knowledge',    [KnowledgeController::class, 'index']);
+        Route::post('/settings/knowledge',   [KnowledgeController::class, 'store']);
+        Route::put('/settings/knowledge/{id}', [KnowledgeController::class, 'update']);
+        Route::delete('/settings/knowledge/{id}', [KnowledgeController::class, 'destroy']);
 
         // Users
-        Route::get('/users',                 fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::put('/users/{id}',            fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
+        Route::get('/users',                 [UsersController::class, 'index']);
+        Route::put('/users/{id}',            [UsersController::class, 'update']);
 
         // Chat
-        Route::get('/chat/sessions',                    [ChatController::class, 'sessions']);
-        Route::post('/chat/sessions',                   [ChatController::class, 'createSession']);
-        Route::get('/chat/sessions/{id}/messages',      [ChatController::class, 'messages']);
-        Route::post('/chat/sessions/{id}/messages',     [ChatController::class, 'sendMessage']);
+        Route::get('/chat/sessions',                 [ChatController::class, 'sessions']);
+        Route::post('/chat/sessions',                [ChatController::class, 'createSession']);
+        Route::get('/chat/sessions/{id}/messages',   [ChatController::class, 'messages']);
+        Route::post('/chat/sessions/{id}/messages',  [ChatController::class, 'sendMessage']);
     });
 
 });

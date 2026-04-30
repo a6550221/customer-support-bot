@@ -35,6 +35,7 @@
             </div>
             <el-input v-model="kbSearch" placeholder="搜尋知識庫..." :prefix-icon="Search" clearable size="small" style="margin-bottom:12px" />
             <div class="kb-list">
+              <div v-if="kbLoading" style="text-align:center;padding:20px;color:#9e9890">載入中…</div>
               <div v-for="item in filteredKb" :key="item.id" class="kb-item">
                 <div class="kb-item-left">
                   <span :class="['kb-type', item.type]">{{ { faq:'FAQ', policy:'政策', template:'範本', guide:'指引' }[item.type] }}</span>
@@ -44,6 +45,7 @@
                 <div class="kb-item-right">
                   <span class="kb-usage">使用 {{ item.usage }} 次</span>
                   <el-button size="small" text @click="editKbItem(item)">編輯</el-button>
+                  <el-button size="small" text type="danger" @click="deleteKbItem(item)">刪除</el-button>
                 </div>
               </div>
             </div>
@@ -67,7 +69,7 @@
                 <span :class="['role-badge', u.role]">{{ { admin:'管理員', agent:'坐席', supervisor:'主管' }[u.role] }}</span>
                 <span :class="['status-dot', u.online ? 'online' : 'offline']">{{ u.online ? '在線' : '離線' }}</span>
                 <div class="user-stats">{{ u.orders }} 單/月</div>
-                <el-switch :model-value="u.active" size="small" />
+                <el-switch :model-value="u.active" size="small" @change="toggleUserActive(u)" />
               </div>
             </div>
           </div>
@@ -76,7 +78,10 @@
         <!-- Notifications -->
         <div v-if="activeSection === 'notifications'">
           <div class="section-card">
-            <div class="section-title" style="margin-bottom:20px">通知設定 Notifications</div>
+            <div class="section-header">
+              <div class="section-title">通知設定 Notifications</div>
+              <el-button type="primary" size="small" :loading="savingNotifs" @click="saveNotifications">儲存設定</el-button>
+            </div>
             <div class="notif-list">
               <div v-for="n in notifications" :key="n.key" class="notif-row">
                 <div class="notif-info">
@@ -147,7 +152,7 @@
               </div>
             </div>
             <div style="margin-top:20px;text-align:right">
-              <el-button type="primary" @click="saveSystem">儲存設定</el-button>
+              <el-button type="primary" :loading="savingSystem" @click="saveSystem">儲存設定</el-button>
             </div>
           </div>
         </div>
@@ -174,13 +179,34 @@
         <el-button type="primary" @click="addKbItem">新增</el-button>
       </template>
     </el-dialog>
+
+    <!-- Edit KB Dialog -->
+    <el-dialog v-model="showEditKb" title="編輯知識庫條目" width="500px">
+      <el-form :model="editKb" label-width="80px" size="small">
+        <el-form-item label="類型">
+          <el-select v-model="editKb.type" style="width:100%">
+            <el-option label="FAQ" value="faq" />
+            <el-option label="政策" value="policy" />
+            <el-option label="範本" value="template" />
+            <el-option label="指引" value="guide" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="問題/標題"><el-input v-model="editKb.question" /></el-form-item>
+        <el-form-item label="答案/內容"><el-input v-model="editKb.answer" type="textarea" :rows="4" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEditKb = false">取消</el-button>
+        <el-button type="primary" @click="saveEditKb">儲存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Search } from '@element-plus/icons-vue'
+import { settingsApi } from '@/api/index.js'
 
 const activeSection = ref('axi')
 const sections = [
@@ -191,74 +217,145 @@ const sections = [
   { key: 'system',        label: '系統配置',   icon: '⚙️' },
 ]
 
-// Knowledge Base
-const kbSearch = ref('')
+// ── Knowledge Base ────────────────────────────────────────────────────────────
+const kbSearch  = ref('')
 const showAddKb = ref(false)
-const kbItems = ref([
-  { id:1, type:'faq',      question:'貨物在運輸途中損壞怎麼辦？', answer:'PrimeAxis 對所有貨物提供保險，請在收件後24小時內拍照上傳並聯繫客服，我們將在3個工作日內處理賠償申請。', usage: 248 },
-  { id:2, type:'faq',      question:'預計到達時間如何查詢？', answer:'您可以通過官網訂單追蹤頁面，或直接聯繫客服提供訂單號，我們實時同步物流數據。', usage: 312 },
-  { id:3, type:'policy',   question:'取消訂單政策', answer:'訂單在取件前可免費取消。取件後如需取消，需視貨物所在位置收取相應費用。詳情請參閱服務條款第5.2條。', usage: 120 },
-  { id:4, type:'template', question:'異常訂單回覆範本', answer:'親愛的[客戶姓名]，您的訂單 [訂單號] 目前遇到以下問題：[問題描述]。我們正在積極處理，預計在[時間]內解決。如有疑問請聯繫我們。', usage: 189 },
-  { id:5, type:'guide',    question:'如何處理收件地址不完整的訂單？', answer:'1) 立即將訂單標記為「異常」狀態 2) 通過郵件或電話聯繫客戶確認完整地址 3) 更新訂單信息 4) 安排重新派送', usage: 95 },
-  { id:6, type:'faq',      question:'可以修改收件地址嗎？', answer:'貨物到達目的城市倉庫前可修改收件地址，需提前24小時通知。到達後如需修改將收取額外費用。', usage: 167 },
-])
+const showEditKb = ref(false)
+const kbItems   = ref([])
+const kbLoading = ref(false)
+
+const newKb  = ref({ type: 'faq', question: '', answer: '' })
+const editKb = ref({ id: null, type: 'faq', question: '', answer: '' })
 
 const filteredKb = computed(() => {
   if (!kbSearch.value) return kbItems.value
   const q = kbSearch.value.toLowerCase()
-  return kbItems.value.filter(k => k.question.toLowerCase().includes(q) || k.answer.toLowerCase().includes(q))
+  return kbItems.value.filter(k =>
+    k.question.toLowerCase().includes(q) || k.answer.toLowerCase().includes(q)
+  )
 })
 
-const newKb = ref({ type:'faq', question:'', answer:'' })
-function addKbItem() {
-  kbItems.value.push({ id: Date.now(), ...newKb.value, usage: 0 })
+async function loadKb() {
+  kbLoading.value = true
+  try {
+    const res = await settingsApi.getKnowledge()
+    kbItems.value = (res.data || []).map(k => ({ ...k, usage: k.usage_count ?? 0 }))
+  } finally {
+    kbLoading.value = false
+  }
+}
+
+async function addKbItem() {
+  if (!newKb.value.question.trim() || !newKb.value.answer.trim()) {
+    ElMessage.warning('請填寫問題和答案')
+    return
+  }
+  const res = await settingsApi.createKnowledge(newKb.value)
+  kbItems.value.push({ ...res.data, usage: 0 })
   showAddKb.value = false
-  newKb.value = { type:'faq', question:'', answer:'' }
+  newKb.value = { type: 'faq', question: '', answer: '' }
   ElMessage.success('知識庫條目已新增')
 }
+
 function editKbItem(item) {
-  ElMessage.info('點擊條目可進入編輯')
+  editKb.value = { id: item.id, type: item.type, question: item.question, answer: item.answer }
+  showEditKb.value = true
 }
 
-// Users
-const users = ref([
-  { id:1, name:'陳小明', email:'chen.xiaoming@primeaxis.com', role:'supervisor', online: true,  active: true,  orders: 184 },
-  { id:2, name:'王大華', email:'wang.dahua@primeaxis.com',    role:'agent',      online: true,  active: true,  orders: 162 },
-  { id:3, name:'林曉月', email:'lin.xiaoyue@primeaxis.com',  role:'agent',      online: false, active: true,  orders: 148 },
-  { id:4, name:'趙志遠', email:'zhao.zhiyuan@primeaxis.com', role:'agent',      online: false, active: true,  orders: 124 },
-  { id:5, name:'黃小芬', email:'huang.xiaofen@primeaxis.com',role:'agent',      online: true,  active: true,  orders: 108 },
-  { id:6, name:'系統管理員', email:'admin@primeaxis.com',    role:'admin',      online: true,  active: true,  orders: 0 },
-])
+async function saveEditKb() {
+  await settingsApi.updateKnowledge(editKb.value.id, {
+    type: editKb.value.type,
+    question: editKb.value.question,
+    answer: editKb.value.answer,
+  })
+  const idx = kbItems.value.findIndex(k => k.id === editKb.value.id)
+  if (idx !== -1) Object.assign(kbItems.value[idx], editKb.value)
+  showEditKb.value = false
+  ElMessage.success('知識庫條目已更新')
+}
 
-// Notifications
-const notifications = ref([
-  { key:'new_order',   name:'新訂單提醒',   desc:'有新訂單建立時通知相關客服', email:true,  push:true,  sms:false },
-  { key:'exception',   name:'訂單異常警告', desc:'訂單進入異常狀態時即時通知', email:true,  push:true,  sms:true  },
-  { key:'overdue',     name:'超時未回覆',   desc:'郵件超過2小時未回覆提醒',    email:false, push:true,  sms:false },
-  { key:'daily_report',name:'每日工作報告', desc:'每日下班前發送工作彙總',     email:true,  push:false, sms:false },
-  { key:'shift_change',name:'交班提醒',     desc:'班次交接時提前30分鐘提醒',   email:false, push:true,  sms:true  },
-])
+async function deleteKbItem(item) {
+  await settingsApi.deleteKnowledge(item.id)
+  kbItems.value = kbItems.value.filter(k => k.id !== item.id)
+  ElMessage.success('已刪除')
+}
 
-// Shifts
+// ── Users ─────────────────────────────────────────────────────────────────────
+const users       = ref([])
+const usersLoading = ref(false)
+
+async function loadUsers() {
+  usersLoading.value = true
+  try {
+    const res = await settingsApi.getUsers()
+    users.value = res.data || []
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+async function toggleUserActive(user) {
+  const newVal = !user.active
+  user.active = newVal   // optimistic
+  try {
+    await settingsApi.updateUser(user.id, { active: newVal })
+  } catch {
+    user.active = !newVal  // rollback
+    ElMessage.error('更新失敗')
+  }
+}
+
+// ── Settings (system config + notifications) ──────────────────────────────────
+const notifications  = ref([])
+const systemConfigs  = ref([])
+const settingsLoading = ref(false)
+const savingSystem    = ref(false)
+const savingNotifs    = ref(false)
+
+async function loadSettings() {
+  settingsLoading.value = true
+  try {
+    const res = await settingsApi.getSettings()
+    systemConfigs.value  = res.data?.system_configs || []
+    notifications.value  = res.data?.notifications  || []
+  } finally {
+    settingsLoading.value = false
+  }
+}
+
+async function saveSystem() {
+  savingSystem.value = true
+  try {
+    await settingsApi.saveSettings({ system_configs: systemConfigs.value })
+    ElMessage.success('系統設定已儲存')
+  } finally {
+    savingSystem.value = false
+  }
+}
+
+async function saveNotifications() {
+  savingNotifs.value = true
+  try {
+    await settingsApi.saveSettings({ notifications: notifications.value })
+    ElMessage.success('通知設定已儲存')
+  } finally {
+    savingNotifs.value = false
+  }
+}
+
+// ── Shifts (local — no API yet) ───────────────────────────────────────────────
 const shifts = ref([
-  { id:1, name:'早班', time:'08:00 – 17:00', agents:['陳小明','林曉月'], days:'週一至週五', color:'#e8851a' },
-  { id:2, name:'下午班', time:'13:00 – 22:00', agents:['王大華','趙志遠'], days:'週一至週六', color:'#2a9d5c' },
-  { id:3, name:'夜班', time:'22:00 – 08:00', agents:['黃小芬'], days:'週二、四、六', color:'#3b82f6' },
+  { id: 1, name: '早班',   time: '08:00 – 17:00', agents: ['陳小明', '林曉月'], days: '週一至週五', color: '#e8851a' },
+  { id: 2, name: '下午班', time: '13:00 – 22:00', agents: ['王大華', '趙志遠'], days: '週一至週六', color: '#2a9d5c' },
+  { id: 3, name: '夜班',   time: '22:00 – 08:00', agents: ['黃小芬'],           days: '週二、四、六', color: '#3b82f6' },
 ])
 
-// System Configs
-const systemConfigs = ref([
-  { key:'auto_assign',  name:'自動分配訂單',    desc:'新訂單自動平均分配給在線坐席',       type:'switch', value: true },
-  { key:'axi_draft',    name:'Axi 智能草擬',    desc:'啟用 Axi AI 輔助回覆草擬功能',       type:'switch', value: true },
-  { key:'axi_bot',      name:'Axi 機器人自動回', desc:'非辦公時間啟用機器人自動應答',        type:'switch', value: false },
-  { key:'lang',         name:'系統語言',         desc:'介面及報表語言設定',                  type:'select', value:'繁體中文', options:['繁體中文','简体中文','English'] },
-  { key:'timezone',     name:'時區設定',         desc:'訂單時間戳使用的時區',                type:'select', value:'HKT (UTC+8)', options:['HKT (UTC+8)','CST (UTC+8)','UTC'] },
-  { key:'session_timeout', name:'會話超時時長', desc:'坐席無操作自動登出時間（分鐘）',      type:'input',  value:'60' },
-])
-
-function saveSystem() {
-  ElMessage.success('系統設定已儲存')
-}
+// ── Init ──────────────────────────────────────────────────────────────────────
+onMounted(() => {
+  loadKb()
+  loadUsers()
+  loadSettings()
+})
 </script>
 
 <style scoped>

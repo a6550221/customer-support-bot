@@ -120,30 +120,38 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { followupApi } from '@/api/index.js'
 import dayjs from 'dayjs'
 
-const today = dayjs().format('YYYY年MM月DD日')
+const today   = dayjs().format('YYYY年MM月DD日')
 const showAdd = ref(false)
 const activeTab = ref('all')
+const loading = ref(false)
 
-const tasks = ref([
-  { id:1, title:'跟進客戶張美玲訂單 PA-2024-0890 異常問題', order_no:'PA-2024-0890', customer:'張美玲', priority:'high', status:'inprogress', dueTime:'12:00', note:'地址信息不完整，需重新確認', assignee:'陳小明' },
-  { id:2, title:'回覆 Global Trade 取件確認郵件', order_no:'PA-2024-0891', customer:'Global Trade', priority:'high', status:'todo', dueTime:'11:00', note:'安排14:00-17:00取件窗口', assignee:'陳小明' },
-  { id:3, title:'確認 ABC Corp 貨物清關情況', order_no:'PA-2024-0892', customer:'ABC Corp', priority:'medium', status:'todo', dueTime:'15:00', note:'', assignee:'王大華' },
-  { id:4, title:'更新李偉強訂單物流時間軸', order_no:'PA-2024-0893', customer:'李偉強', priority:'medium', status:'done', dueTime:'10:00', note:'已更新抵達香港倉庫記錄', assignee:'陳小明' },
-  { id:5, title:'通知陳志豪訂單派送完成', order_no:'PA-2024-0889', customer:'陳志豪', priority:'low', status:'done', dueTime:'09:30', note:'已發送確認短信', assignee:'王大華' },
-  { id:6, title:'核對劉建國訂單重量文件', order_no:'PA-2024-0888', customer:'劉建國', priority:'medium', status:'todo', dueTime:'16:30', note:'需核對報關單重量', assignee:'林曉月' },
-  { id:7, title:'跟進 Sunrise Ltd 已結單款項', order_no:'PA-2024-0887', customer:'Sunrise Ltd', priority:'low', status:'inprogress', dueTime:'17:00', note:'財務確認後標記完成', assignee:'林曉月' },
-])
+const tasks = ref([])
+
+async function loadTasks() {
+  loading.value = true
+  try {
+    const res = await followupApi.list()
+    tasks.value = (res.data || []).map(t => ({
+      ...t,
+      dueTime:  t.due_time ?? '',
+      assignee: t.assignee_name ?? '',
+    }))
+  } finally {
+    loading.value = false
+  }
+}
 
 const tabs = computed(() => [
   { key: 'all',        label: '全部',   count: tasks.value.length },
   { key: 'todo',       label: '待辦',   count: tasks.value.filter(t => t.status === 'todo').length },
   { key: 'inprogress', label: '進行中', count: tasks.value.filter(t => t.status === 'inprogress').length },
-  { key: 'done',       label: '已完成', count: 0 },
+  { key: 'done',       label: '已完成', count: tasks.value.filter(t => t.status === 'done').length },
 ])
 
 const filteredTasks = computed(() => {
@@ -151,33 +159,55 @@ const filteredTasks = computed(() => {
   return tasks.value.filter(t => t.status === activeTab.value)
 })
 
-const done       = computed(() => tasks.value.filter(t => t.status === 'done').length)
-const inProgress = computed(() => tasks.value.filter(t => t.status === 'inprogress').length)
-const pending    = computed(() => tasks.value.filter(t => t.status === 'todo').length)
-const progressPct = computed(() => Math.round((done.value / tasks.value.length) * 100))
+const done        = computed(() => tasks.value.filter(t => t.status === 'done').length)
+const inProgress  = computed(() => tasks.value.filter(t => t.status === 'inprogress').length)
+const pending     = computed(() => tasks.value.filter(t => t.status === 'todo').length)
+const progressPct = computed(() => tasks.value.length ? Math.round((done.value / tasks.value.length) * 100) : 0)
 
-function toggleDone(task) {
-  task.status = task.status === 'done' ? 'todo' : 'done'
+async function toggleDone(task) {
+  const newStatus = task.status === 'done' ? 'todo' : 'done'
+  task.status = newStatus  // optimistic
+  try {
+    await followupApi.update(task.id, { status: newStatus })
+  } catch {
+    task.status = newStatus === 'done' ? 'todo' : 'done'  // rollback
+  }
 }
 
-function changeStatus(task, val) {
-  task.status = val
-  ElMessage.success('狀態已更新')
+async function changeStatus(task, val) {
+  const prev = task.status
+  task.status = val  // optimistic
+  try {
+    await followupApi.update(task.id, { status: val })
+    ElMessage.success('狀態已更新')
+  } catch {
+    task.status = prev
+  }
 }
 
-const newTask = ref({ title:'', order_no:'', customer:'', priority:'medium', dueTime:'', note:'' })
+const newTask = ref({ title: '', order_no: '', customer: '', priority: 'medium', dueTime: '', note: '' })
 
-function addTask() {
-  tasks.value.unshift({
-    id: Date.now(),
-    ...newTask.value,
-    status: 'todo',
-    assignee: '陳小明',
+async function addTask() {
+  if (!newTask.value.title.trim()) {
+    ElMessage.warning('請填寫任務標題')
+    return
+  }
+  const res = await followupApi.create({
+    title:    newTask.value.title,
+    order_no: newTask.value.order_no,
+    customer: newTask.value.customer,
+    priority: newTask.value.priority,
+    due_time: newTask.value.dueTime,
+    note:     newTask.value.note,
   })
+  const t = res.data
+  tasks.value.unshift({ ...t, dueTime: t.due_time ?? '', assignee: t.assignee_name ?? '' })
   showAdd.value = false
-  newTask.value = { title:'', order_no:'', customer:'', priority:'medium', dueTime:'', note:'' }
+  newTask.value = { title: '', order_no: '', customer: '', priority: 'medium', dueTime: '', note: '' }
   ElMessage.success('跟進任務已新增')
 }
+
+onMounted(loadTasks)
 </script>
 
 <style scoped>

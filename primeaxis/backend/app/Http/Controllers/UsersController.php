@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UsersController extends Controller
 {
@@ -29,6 +30,35 @@ class UsersController extends Controller
         ]);
 
         return response()->json(['code' => 200, 'message' => 'success', 'data' => $data]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name'     => 'required|string|max:100',
+            'email'    => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6',
+            'role'     => 'required|in:admin,supervisor,agent',
+        ]);
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+            'role'     => $request->role,
+            'status'   => 'offline',
+            'active'   => true,
+        ]);
+
+        return response()->json(['code' => 200, 'message' => 'success', 'data' => [
+            'id'     => $user->id,
+            'name'   => $user->name,
+            'email'  => $user->email,
+            'role'   => $user->role,
+            'online' => false,
+            'active' => true,
+            'orders' => 0,
+        ]]);
     }
 
     public function update(Request $request, $id)

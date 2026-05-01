@@ -57,7 +57,7 @@
           <div class="section-card">
             <div class="section-header">
               <div class="section-title">坐席帳號管理 Agent Accounts</div>
-              <el-button type="primary" size="small" :icon="Plus">新增坐席</el-button>
+              <el-button type="primary" size="small" :icon="Plus" @click="showAddUser = true">新增坐席</el-button>
             </div>
             <div class="user-list">
               <div v-for="u in users" :key="u.id" class="user-row">
@@ -199,6 +199,26 @@
         <el-button type="primary" @click="saveEditKb">儲存</el-button>
       </template>
     </el-dialog>
+
+    <!-- Add User Dialog -->
+    <el-dialog v-model="showAddUser" title="新增坐席" width="420px" :close-on-click-modal="false">
+      <el-form :model="newUser" label-width="80px" size="small">
+        <el-form-item label="姓名"><el-input v-model="newUser.name" placeholder="請輸入姓名" /></el-form-item>
+        <el-form-item label="郵箱"><el-input v-model="newUser.email" placeholder="請輸入郵箱" type="email" /></el-form-item>
+        <el-form-item label="初始密碼"><el-input v-model="newUser.password" placeholder="至少6位" show-password /></el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="newUser.role" style="width:100%">
+            <el-option label="坐席" value="agent" />
+            <el-option label="主管" value="supervisor" />
+            <el-option label="管理員" value="admin" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showAddUser = false">取消</el-button>
+        <el-button type="primary" :loading="addingUser" @click="addUser">建立帳號</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -281,8 +301,11 @@ async function deleteKbItem(item) {
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────
-const users       = ref([])
+const users        = ref([])
 const usersLoading = ref(false)
+const showAddUser  = ref(false)
+const addingUser   = ref(false)
+const newUser      = ref({ name: '', email: '', password: '', role: 'agent' })
 
 async function loadUsers() {
   usersLoading.value = true
@@ -291,6 +314,26 @@ async function loadUsers() {
     users.value = res.data || []
   } finally {
     usersLoading.value = false
+  }
+}
+
+async function addUser() {
+  if (!newUser.value.name.trim() || !newUser.value.email.trim() || !newUser.value.password.trim()) {
+    ElMessage.warning('請填寫完整信息')
+    return
+  }
+  addingUser.value = true
+  try {
+    const res = await settingsApi.createUser(newUser.value)
+    users.value.push(res.data)
+    showAddUser.value = false
+    newUser.value = { name: '', email: '', password: '', role: 'agent' }
+    ElMessage.success('坐席帳號已建立')
+  } catch (err) {
+    const msg = err?.data?.errors?.email?.[0] || err?.message || '建立失敗'
+    ElMessage.error(msg)
+  } finally {
+    addingUser.value = false
   }
 }
 

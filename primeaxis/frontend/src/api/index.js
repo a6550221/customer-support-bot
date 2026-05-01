@@ -74,9 +74,17 @@ export const settingsApi = {
   updateKnowledge: (id, data) => api.put(`/settings/knowledge/${id}`, data),
   deleteKnowledge: id         => api.delete(`/settings/knowledge/${id}`),
   getUsers:        ()         => api.get('/users'),
+  createUser:      data       => api.post('/users', data),
   updateUser:      (id, d)    => api.put(`/users/${id}`, d),
   getSettings:     ()         => api.get('/settings'),
   saveSettings:    data       => api.put('/settings', data),
+}
+
+export const reportApi = {
+  stats:    params => api.get('/reports/stats', { params }),
+  agents:   params => api.get('/reports/agents', { params }),
+  autoSend: ()     => api.get('/reports/auto-send'),
+  saveAutoSend: data => api.post('/reports/auto-send', data),
 }
 
 export const chatApi = {

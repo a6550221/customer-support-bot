@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FollowupController;
 use App\Http\Controllers\KnowledgeController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\UsersController;
 
@@ -41,9 +42,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/followup',             [FollowupController::class, 'store']);
         Route::put('/followup/{id}',         [FollowupController::class, 'update']);
 
-        // Reports (stub — no DB model for report aggregates yet)
-        Route::get('/reports/stats',         fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
-        Route::get('/reports/agents',        fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
+        // Reports
+        Route::get('/reports/stats',         [ReportsController::class, 'stats']);
+        Route::get('/reports/agents',        [ReportsController::class, 'agents']);
         Route::post('/reports/auto-send',    fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
         Route::get('/reports/auto-send',     fn() => response()->json(['code' => 200, 'message' => 'success', 'data' => []]));
 
@@ -59,6 +60,7 @@ Route::prefix('v1')->group(function () {
 
         // Users
         Route::get('/users',                 [UsersController::class, 'index']);
+        Route::post('/users',                [UsersController::class, 'store']);
         Route::put('/users/{id}',            [UsersController::class, 'update']);
 
         // Chat

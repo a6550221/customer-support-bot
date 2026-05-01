@@ -34,8 +34,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders/{order}',        [OrderController::class, 'show']);
         Route::put('/orders/{order}',        [OrderController::class, 'update']);
         Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
-        Route::get('/orders/{order}/tracking',[OrderController::class, 'tracking']);
-        Route::get('/orders/{order}/timeline',[OrderController::class, 'tracking']);
+        Route::get('/orders/{order}/tracking', [OrderController::class, 'tracking']);
+        Route::get('/orders/{order}/timeline', [OrderController::class, 'tracking']);
+        Route::post('/orders/{order}/events',  [OrderController::class, 'addEvent']);
 
         // Followup
         Route::get('/followup',              [FollowupController::class, 'index']);

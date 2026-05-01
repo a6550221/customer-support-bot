@@ -42,9 +42,9 @@ export const orderApi = {
   create: data   => api.post('/orders', data),
   update: (id, d) => api.put(`/orders/${id}`, d),
   delete: id     => api.delete(`/orders/${id}`),
-  updateStatus: (id, status) => api.put(`/orders/${id}/status`, { status }),
+  updateStatus: (id, status, note) => api.put(`/orders/${id}/status`, { status, note }),
   timeline: id   => api.get(`/orders/${id}/timeline`),
-  addNote:  (id, note) => api.post(`/orders/${id}/notes`, { note }),
+  addEvent: (id, text, type) => api.post(`/orders/${id}/events`, { text, type }),
 }
 
 export const dashboardApi = {

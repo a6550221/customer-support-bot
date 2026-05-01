@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\TrackingEvent;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -118,27 +119,89 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $createdAt,
                 'updated_at' => $createdAt,
             ]);
+        }
 
-            // Add initial tracking event only on first creation
-            if ($order->wasRecentlyCreated) {
-                TrackingEvent::create([
-                    'order_id' => $order->id,
-                    'text'     => '訂單已建立',
-                    'type'     => 'primary',
+        // ── Tracking Events (always rebuild with realistic data) ───────────────
+        $seededNos    = array_column($orders, 0);
+        $seededOrders = Order::whereIn('order_no', $seededNos)->get()->keyBy('order_no');
+        TrackingEvent::whereIn('order_id', $seededOrders->pluck('id'))->delete();
+
+        foreach ($orders as [$no, , $route, , $status, , $createdAt, $notes]) {
+            $order = $seededOrders[$no] ?? null;
+            if (! $order) continue;
+
+            $base  = Carbon::parse($createdAt);
+            $parts = explode(' → ', $route);
+            $orig  = $parts[0];
+            $dest  = $parts[1];
+
+            // Estimated transit days by route
+            $days = 3;
+            if (str_contains($route, 'GZ') && str_contains($route, 'HK'))     $days = 1;
+            elseif (str_contains($route, 'SH') && str_contains($route, 'HK')) $days = 2;
+            elseif (str_contains($route, 'HK') && str_contains($route, 'SH')) $days = 2;
+            elseif (str_contains($route, 'HK') && str_contains($route, 'TW')) $days = 3;
+            elseif (str_contains($route, 'TW') && str_contains($route, 'HK')) $days = 3;
+            elseif (str_contains($route, 'GZ') && str_contains($route, 'TW')) $days = 4;
+            elseif (str_contains($route, 'HK') && str_contains($route, 'SG')) $days = 4;
+            elseif (str_contains($route, 'HK') && str_contains($route, 'BJ')) $days = 5;
+
+            $arrivedH = $days * 22; // hours until arrival at destination
+
+            // Build event chain based on status
+            $events = [];
+            $events[] = [$base->copy(),                      '訂單已建立，系統已分配客服專員跟進',                        'primary'];
+
+            if ($status === 'pending') {
+                $events[] = [$base->copy()->addHours(1),    '訂單已確認，正在安排取件時間窗口',                           'primary'];
+                $events[] = [$base->copy()->addHours(2),    "取件通知已發送，客戶確認取件窗口 14:00–17:00（{$orig}）",    'primary'];
+            }
+
+            if (in_array($status, ['transit', 'active', 'exception', 'closed'])) {
+                $eta = $base->copy()->addHours(6)->format('H:i');
+                $events[] = [$base->copy()->addHours(2),    "客服確認訂單資訊，已安排取件員 {$eta} 上門（{$orig}）",      'primary'];
+                $events[] = [$base->copy()->addHours(6),    "取件員已到達，貨物取件完成，重量核實無誤",                   'primary'];
+                $events[] = [$base->copy()->addHours(14),   "貨物已入庫 {$orig} 出口轉運中心，掃描建檔完成",              'primary'];
+            }
+
+            if (in_array($status, ['active', 'exception', 'closed'])) {
+                $events[] = [$base->copy()->addHours(24),   '出口報關文件審核通過，海關清關完成',                         'primary'];
+                $eta2     = $base->copy()->addDays($days)->format('n月j日');
+                $events[] = [$base->copy()->addHours(28),   "貨物已裝載發出，預計 {$eta2} 到達 {$dest}",                 'primary'];
+            }
+
+            if ($status === 'transit') {
+                $events[] = [$base->copy()->addHours(24),   '出口報關文件審核通過，貨物準備發出',                         'primary'];
+                $eta2     = $base->copy()->addDays($days)->format('n月j日');
+                $events[] = [$base->copy()->addHours(36),   "貨物已發出運輸途中，預計 {$eta2} 到達 {$dest}",             'primary'];
+            }
+
+            if ($status === 'exception') {
+                $reason   = $notes ?: '詳情待確認';
+                $events[] = [$base->copy()->addHours($arrivedH),     "貨物抵達 {$dest} 口岸，通關時發現異常：{$reason}",  'danger'];
+                $events[] = [$base->copy()->addHours($arrivedH + 2), '客服已介入，正在聯繫相關部門加速處理',               'warning'];
+            }
+
+            if ($status === 'active') {
+                $events[] = [$base->copy()->addHours($arrivedH),     "貨物已到達 {$dest} 配送中心，進口清關完成",          'primary'];
+                $events[] = [$base->copy()->addHours($arrivedH + 6), '快遞員已攜件出發，正在前往收件地址',                 'primary'];
+            }
+
+            if ($status === 'closed') {
+                $events[] = [$base->copy()->addHours($arrivedH),      "貨物已到達 {$dest}，進口清關審核通過",              'primary'];
+                $events[] = [$base->copy()->addHours($arrivedH + 6),  '快遞員已攜件，準備上門派送至客戶',                  'primary'];
+                $events[] = [$base->copy()->addHours($arrivedH + 10), '訂單已完成配送，客戶已簽收確認',                    'success'];
+            }
+
+            // Insert with correct timestamps (newest first for display)
+            foreach ($events as [$ts, $text, $type]) {
+                DB::table('tracking_events')->insert([
+                    'order_id'   => $order->id,
+                    'text'       => $text,
+                    'type'       => $type,
+                    'created_at' => $ts->format('Y-m-d H:i:s'),
+                    'updated_at' => $ts->format('Y-m-d H:i:s'),
                 ]);
-                if ($status === 'closed') {
-                    TrackingEvent::create([
-                        'order_id' => $order->id,
-                        'text'     => '訂單已完成配送',
-                        'type'     => 'success',
-                    ]);
-                } elseif ($status === 'exception') {
-                    TrackingEvent::create([
-                        'order_id' => $order->id,
-                        'text'     => '訂單進入異常狀態，客服跟進中',
-                        'type'     => 'danger',
-                    ]);
-                }
             }
         }
 

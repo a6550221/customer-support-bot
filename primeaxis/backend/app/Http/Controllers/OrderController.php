@@ -98,4 +98,19 @@ class OrderController extends Controller
     {
         return response()->json(['code' => 200, 'message' => 'success', 'data' => $order->trackingEvents()->orderBy('created_at', 'desc')->get()]);
     }
+
+    public function addEvent(Request $request, Order $order)
+    {
+        $request->validate([
+            'text' => 'required|string|max:500',
+            'type' => 'nullable|in:primary,success,warning,danger',
+        ]);
+
+        $event = $order->trackingEvents()->create([
+            'text' => $request->text,
+            'type' => $request->get('type', 'primary'),
+        ]);
+
+        return response()->json(['code' => 200, 'message' => 'success', 'data' => $event]);
+    }
 }

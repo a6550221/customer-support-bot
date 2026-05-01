@@ -15,6 +15,13 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // ── Clean up legacy PA-2024-xxxx orders (replaced by proper PA-2025/2026 ones) ──
+        $legacyIds = Order::where('order_no', 'like', 'PA-2024-%')->pluck('id');
+        if ($legacyIds->isNotEmpty()) {
+            TrackingEvent::whereIn('order_id', $legacyIds)->delete();
+            Order::whereIn('id', $legacyIds)->delete();
+        }
+
         // ── Users ──────────────────────────────────────────────────────────────
         $admin = User::firstOrCreate(['email' => 'admin@primeaxis.com'], [
             'name'     => '系統管理員',

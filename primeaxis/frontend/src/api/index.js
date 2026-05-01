@@ -80,13 +80,6 @@ export const settingsApi = {
   saveSettings:    data       => api.put('/settings', data),
 }
 
-export const reportApi = {
-  stats:    params => api.get('/reports/stats', { params }),
-  agents:   params => api.get('/reports/agents', { params }),
-  autoSend: ()     => api.get('/reports/auto-send'),
-  saveAutoSend: data => api.post('/reports/auto-send', data),
-}
-
 export const chatApi = {
   sessions:       ()           => api.get('/chat/sessions'),
   createSession:  data         => api.post('/chat/sessions', data),

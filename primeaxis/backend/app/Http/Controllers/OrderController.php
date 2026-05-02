@@ -85,10 +85,11 @@ class OrderController extends Controller
 
         $order->update(['status' => $request->status]);
 
-        // Add tracking event
+        // Add tracking event with editor info
         $order->trackingEvents()->create([
-            'text' => $request->note ?: "狀態更新為「{$statusLabels[$request->status]}」",
-            'type' => $request->status === 'exception' ? 'danger' : ($request->status === 'closed' ? 'success' : 'primary'),
+            'text'    => $request->note ?: "狀態更新為「{$statusLabels[$request->status]}」",
+            'type'    => $request->status === 'exception' ? 'danger' : ($request->status === 'closed' ? 'success' : 'primary'),
+            'user_id' => auth()->id(),
         ]);
 
         return response()->json(['code' => 200, 'message' => 'success', 'data' => $order->fresh()->load('trackingEvents')]);
@@ -96,7 +97,12 @@ class OrderController extends Controller
 
     public function tracking(Order $order)
     {
-        return response()->json(['code' => 200, 'message' => 'success', 'data' => $order->trackingEvents()->orderBy('created_at', 'desc')->get()]);
+        $events = $order->trackingEvents()
+            ->with('user:id,name')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json(['code' => 200, 'message' => 'success', 'data' => $events]);
     }
 
     public function addEvent(Request $request, Order $order)
@@ -107,8 +113,9 @@ class OrderController extends Controller
         ]);
 
         $event = $order->trackingEvents()->create([
-            'text' => $request->text,
-            'type' => $request->get('type', 'primary'),
+            'text'    => $request->text,
+            'type'    => $request->get('type', 'primary'),
+            'user_id' => auth()->id(),
         ]);
 
         return response()->json(['code' => 200, 'message' => 'success', 'data' => $event]);

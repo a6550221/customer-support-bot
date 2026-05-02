@@ -126,7 +126,7 @@ class DatabaseSeeder extends Seeder
         $seededOrders = Order::whereIn('order_no', $seededNos)->get()->keyBy('order_no');
         TrackingEvent::whereIn('order_id', $seededOrders->pluck('id'))->delete();
 
-        foreach ($orders as [$no, , $route, , $status, , $createdAt, $notes]) {
+        foreach ($orders as [$no, , $route, , $status, $assigneeId, $createdAt, $notes]) {
             $order = $seededOrders[$no] ?? null;
             if (! $order) continue;
 
@@ -193,12 +193,13 @@ class DatabaseSeeder extends Seeder
                 $events[] = [$base->copy()->addHours($arrivedH + 10), '訂單已完成配送，客戶已簽收確認',                    'success'];
             }
 
-            // Insert with correct timestamps (newest first for display)
+            // Insert with correct timestamps and editor attribution
             foreach ($events as [$ts, $text, $type]) {
                 DB::table('tracking_events')->insert([
                     'order_id'   => $order->id,
                     'text'       => $text,
                     'type'       => $type,
+                    'user_id'    => $assigneeId,
                     'created_at' => $ts->format('Y-m-d H:i:s'),
                     'updated_at' => $ts->format('Y-m-d H:i:s'),
                 ]);

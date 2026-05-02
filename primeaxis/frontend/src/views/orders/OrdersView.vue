@@ -11,14 +11,23 @@
 
     <!-- Filter Bar -->
     <div class="filter-bar">
-      <el-input v-model="search" placeholder="搜尋訂單號/客戶..." :prefix-icon="Search" clearable style="width:240px" />
-      <el-select v-model="filterStatus" placeholder="所有狀態" clearable style="width:130px">
+      <el-input v-model="search" placeholder="搜尋訂單號/客戶..." :prefix-icon="Search" clearable style="width:220px" />
+      <el-select
+        v-model="filterStatus"
+        multiple
+        collapse-tags
+        collapse-tags-tooltip
+        placeholder="所有狀態"
+        clearable
+        style="width:160px"
+      >
         <el-option label="運輸中" value="transit" />
         <el-option label="待取件" value="pending" />
         <el-option label="已派送" value="active" />
         <el-option label="異常"   value="exception" />
         <el-option label="已結單" value="closed" />
       </el-select>
+      <el-checkbox v-model="hideCompleted" class="hide-done-check">隱藏已結單</el-checkbox>
       <el-button :icon="Refresh" @click="init" :loading="loading" />
     </div>
 
@@ -156,7 +165,10 @@
               :type="t.type || 'primary'"
               placement="top"
             >
-              {{ t.text }}
+              <div class="tl-row">
+                <span class="tl-text">{{ t.text }}</span>
+                <span class="tl-editor">{{ t.editor_name }}</span>
+              </div>
             </el-timeline-item>
             <el-timeline-item v-if="!timeline.length" type="" timestamp="—">
               <span style="color:#9e9890;font-size:12px">暫無追蹤記錄</span>
@@ -209,7 +221,8 @@ const STATUS_LABEL = {
 // ── State ──────────────────────────────────────────────────────────────────
 const loading       = ref(false)
 const search        = ref('')
-const filterStatus  = ref('')
+const filterStatus  = ref([])   // multi-select array
+const hideCompleted = ref(false)
 const orders        = ref([])
 
 const drawerOpen    = ref(false)
@@ -246,8 +259,11 @@ const filteredOrders = computed(() => {
     const matchSearch = !s ||
       o.order_no.toLowerCase().includes(s) ||
       o.customer_name.toLowerCase().includes(s)
-    const matchStatus = !filterStatus.value || o.status === filterStatus.value
-    return matchSearch && matchStatus
+    // Multi-select: empty array = show all; otherwise must be in selected list
+    const matchStatus = filterStatus.value.length === 0 || filterStatus.value.includes(o.status)
+    // Hide completed toggle
+    const matchHide = !hideCompleted.value || o.status !== 'closed'
+    return matchSearch && matchStatus && matchHide
   })
 })
 
@@ -391,4 +407,21 @@ onMounted(init)
   padding: 12px;
   margin-bottom: 16px;
 }
+
+/* Timeline row with editor tag */
+.tl-row   { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.tl-text  { flex: 1; font-size: 13px; color: #2c2520; line-height: 1.5; }
+.tl-editor {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: #fff;
+  background: #b09070;
+  border-radius: 10px;
+  padding: 1px 7px;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+/* Hide-completed checkbox alignment */
+.hide-done-check { margin-left: 4px; }
 </style>

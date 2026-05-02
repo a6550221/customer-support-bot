@@ -136,8 +136,8 @@ const trendOption = computed(() => {
   const completed = orders.map(v => Math.floor(v * 0.75))
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['新增訂單', '已完成'], bottom: 0, textStyle: { fontSize: 11 } },
-    grid: { top: 10, right: 10, bottom: 30, left: 40 },
+    legend: { data: ['新增訂單', '已完成'], bottom: 4, textStyle: { fontSize: 11 }, itemGap: 20 },
+    grid: { top: 10, right: 10, bottom: 54, left: 40 },
     xAxis: { type: 'category', data: days, axisLabel: { fontSize: 10 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
     series: [
@@ -150,9 +150,9 @@ const trendOption = computed(() => {
 // ── Chart: Donut ──
 const donutOption = computed(() => ({
   tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-  legend: { bottom: 0, textStyle: { fontSize: 10 } },
+  legend: { bottom: 4, textStyle: { fontSize: 10 }, itemGap: 12 },
   series: [{
-    type: 'pie', radius: ['45%', '72%'], center: ['50%', '45%'],
+    type: 'pie', radius: ['45%', '70%'], center: ['50%', '42%'],
     data: [
       { value: 642, name: '運輸中', itemStyle: { color: '#e8851a' } },
       { value: 284, name: '待取件', itemStyle: { color: '#c9a227' } },
@@ -168,8 +168,8 @@ const revenueOption = computed(() => {
   const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出'], bottom: 0, textStyle: { fontSize: 10 } },
-    grid: { top: 10, right: 10, bottom: 30, left: 50 },
+    legend: { data: ['收入', '支出'], bottom: 4, textStyle: { fontSize: 10 }, itemGap: 20 },
+    grid: { top: 10, right: 10, bottom: 54, left: 50 },
     xAxis: { type: 'category', data: months, axisLabel: { fontSize: 9 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 9, formatter: v => v >= 10000 ? (v/10000)+'萬' : v } },
     series: [
@@ -186,8 +186,8 @@ const statusTrendOption = computed(() => {
   )
   return {
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-    legend: { data: ['運輸中', '待取件', '已派送', '異常'], bottom: 0, textStyle: { fontSize: 10 } },
-    grid: { top: 10, right: 10, bottom: 30, left: 40 },
+    legend: { data: ['運輸中', '待取件', '已派送', '異常'], bottom: 4, textStyle: { fontSize: 10 }, itemGap: 16 },
+    grid: { top: 10, right: 10, bottom: 54, left: 40 },
     xAxis: { type: 'category', data: days, axisLabel: { fontSize: 10 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
     series: [

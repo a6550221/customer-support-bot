@@ -11,7 +11,7 @@
           <el-option label="2026年" :value="2026" />
           <el-option label="2025年" :value="2025" />
         </el-select>
-        <el-button :icon="Download" type="primary" plain size="small">導出報表</el-button>
+        <el-button :icon="Download" type="primary" size="small">導出報表</el-button>
       </div>
     </div>
 
@@ -190,8 +190,8 @@ const loading     = ref(false)
 // ── Chart options (computed from real data) ───────────────────────────────────
 const annualTrendOption = computed(() => ({
   tooltip: { trigger: 'axis' },
-  legend: { data: ['新增訂單', '已完成', '異常'], bottom: 0, textStyle: { fontSize: 10 } },
-  grid: { top: 10, right: 10, bottom: 30, left: 45 },
+  legend: { data: ['新增訂單', '已完成', '異常'], bottom: 4, textStyle: { fontSize: 10 }, itemGap: 20 },
+  grid: { top: 10, right: 10, bottom: 54, left: 45 },
   xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10 } },
   yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
   series: [
@@ -209,8 +209,8 @@ const statusPieOption = computed(() => {
     .map(([k, v]) => ({ value: v, name: labelMap[k] || k, itemStyle: { color: colorMap[k] || '#aaa' } }))
   return {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    legend: { bottom: 0, textStyle: { fontSize: 10 } },
-    series: [{ type: 'pie', radius: ['42%', '70%'], center: ['50%', '44%'], data: pieData, label: { fontSize: 10 } }],
+    legend: { bottom: 4, textStyle: { fontSize: 10 }, itemGap: 12 },
+    series: [{ type: 'pie', radius: ['42%', '70%'], center: ['50%', '42%'], data: pieData, label: { fontSize: 10 } }],
   }
 })
 
@@ -220,8 +220,8 @@ const revenueOption = computed(() => {
   const expense = monthlyData.value.map(m => Math.round(m.total * 840))
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: ['收入', '支出'], bottom: 0, textStyle: { fontSize: 10 } },
-    grid: { top: 10, right: 10, bottom: 30, left: 50 },
+    legend: { data: ['收入', '支出'], bottom: 4, textStyle: { fontSize: 10 }, itemGap: 20 },
+    grid: { top: 10, right: 10, bottom: 54, left: 50 },
     xAxis: { type: 'category', data: months, axisLabel: { fontSize: 9 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 9, formatter: v => v >= 10000 ? (v/10000).toFixed(1)+'萬' : v } },
     series: [
@@ -233,11 +233,12 @@ const revenueOption = computed(() => {
 
 const routeOption = computed(() => ({
   tooltip: { trigger: 'item' },
-  legend: { bottom: 0, textStyle: { fontSize: 10 } },
+  legend: { orient: 'vertical', right: 0, top: 'middle', textStyle: { fontSize: 10 }, itemGap: 10 },
   series: [{
-    type: 'pie', radius: '60%',
+    type: 'pie', radius: '60%', center: ['38%', '50%'],
     data: routeDist.value.map((r, i) => ({ value: r.cnt, name: r.route, itemStyle: { color: chartColors[i % chartColors.length] } })),
-    label: { fontSize: 10 },
+    label: { show: false },
+    labelLine: { show: false },
   }],
 }))
 
@@ -268,8 +269,8 @@ const agentTrendOption = computed(() => {
   const top3 = agents.value.slice(0, 3)
   return {
     tooltip: { trigger: 'axis' },
-    legend: { data: top3.map(a => a.name), bottom: 0, textStyle: { fontSize: 10 } },
-    grid: { top: 10, right: 10, bottom: 30, left: 40 },
+    legend: { data: top3.map(a => a.name), bottom: 4, textStyle: { fontSize: 10 }, itemGap: 16 },
+    grid: { top: 10, right: 10, bottom: 54, left: 40 },
     xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10 } },
     yAxis: { type: 'value', axisLabel: { fontSize: 10 } },
     series: top3.map((a, i) => ({

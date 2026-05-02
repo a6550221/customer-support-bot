@@ -72,7 +72,7 @@
     <div class="pa-card recent-orders">
       <div class="chart-header">
         <span class="chart-title">最新訂單 Recent Orders</span>
-        <el-button size="small" type="primary" plain @click="$router.push('/orders')">查看全部</el-button>
+        <el-button size="small" type="primary" @click="$router.push('/orders')">查看全部</el-button>
       </div>
       <el-table :data="recentOrders" size="small" class="orders-table" row-class-name="hover-row">
         <el-table-column prop="order_no" label="訂單號" width="140">
